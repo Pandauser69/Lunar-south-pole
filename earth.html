@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earth Twins of the Lunar South Pole</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#090d16;--panel:#101626;--line:#243049;--text:#e6e9f0;--muted:#97a0b5;--gold:#f2c14e}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,sans-serif}
+aside{width:340px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:18px}
+h1{font-size:1.25rem;font-weight:800;margin:0 0 4px}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 16px;line-height:1.4}
+h2{font-size:.9rem;font-weight:600;color:var(--muted);margin:18px 0 8px}
+a{color:#7fb4ff}
+.cat{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px;font:inherit;font-size:.9rem;cursor:pointer}
+.cat:hover{border-color:#3b4a6b}
+.cat.on{background:#18213a;border-color:var(--c)}
+.cat .dot{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none;opacity:.5}
+.cat.on .dot{opacity:1;box-shadow:0 0 8px var(--c)}
+.cat small{margin-left:auto;color:var(--muted);font-size:.7rem}
+.row{display:flex;gap:6px}
+.row button{flex:1;background:transparent;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:.82rem;cursor:pointer}
+.row button.on{background:var(--gold);color:#1a1405;border-color:var(--gold);font-weight:600}
+#info{background:#0c1220;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.5}
+#info b{display:block;margin-bottom:4px}
+#result{font-size:.88rem;line-height:1.5}
+#result .gold{color:var(--gold);font-weight:600}
+.fine{font-size:.75rem;color:var(--muted);line-height:1.4;margin:8px 0 0}
+#map{flex:1;background:#05070d}
+.leaflet-container{font-family:inherit}
+.pinwrap{display:flex;gap:2px;padding:3px 5px;border-radius:12px;background:#0b1020;border:1px solid #6b7690;transform:translate(-50%,-50%);width:max-content}
+.pinwrap i{width:9px;height:9px;border-radius:50%;display:block}
+.pinwrap.gold{border-color:var(--gold);box-shadow:0 0 12px var(--gold)}
+.leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border:1px solid var(--line)}
+.leaflet-popup-tip{background:var(--panel)}
+.pop h3{margin:0 0 2px;font-size:1.05rem}
+.pop .meta{color:var(--muted);font-size:.8rem;margin-bottom:8px}
+.pop .photo{height:110px;border-radius:8px;background:#0c1220 center/cover;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;margin-bottom:8px}
+.pop p{margin:6px 0;font-size:.86rem;line-height:1.45}
+.pop p span{font-weight:600;color:var(--c)}
+.pop .moon{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+@media(max-width:760px){body{flex-direction:column}aside{width:100%;max-height:45vh;border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<aside>
+  <h1>Earth Twins of the Lunar South Pole</h1>
+  <p class="sub">Places on Earth that share something with the Moon's South Pole. Tap a topic to see where. Pick two or more to find places that match several.</p>
+  <p class="fine" style="margin:-8px 0 8px"><a href="index.html">Open the Moon map</a></p>
+
+  <h2>Topics</h2>
+  <div id="cats"></div>
+
+  <h2>When you pick more than one</h2>
+  <div class="row">
+    <button id="mAny" class="on">Show any</button>
+    <button id="mAll">Match all</button>
+  </div>
+
+  <h2>Why this helps for a moon base</h2>
+  <div id="info">Pick a topic to see what it is and why Earth sites help.</div>
+
+  <h2>Matching places</h2>
+  <div id="result"></div>
+
+  <h2>Map style</h2>
+  <div class="row" id="styleBtns">
+    <button data-s="sat" class="on">Satellite</button>
+    <button data-s="street">Street map</button>
+  </div>
+
+  <h2>View</h2>
+  <div class="row">
+    <button id="vWorld">Whole world</button>
+    <button id="vClear">Clear</button>
+  </div>
+  <p class="fine">Earth sites are only partly like the Moon. Earth has air, liquid water and 6 times more gravity, and the Moon is much colder in its shadowed craters.</p>
+</aside>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ============ 1. DATA (teammates: edit this part) ============ */
+// soon:true = research not added yet (shows a "soon" tag)
+const CATS = [
+  {id:'geology', name:'Geology and surface materials', color:'#c084fc', soon:false,
+   why:'The same kinds of rock mean drilling, digging and building materials can be tested on Earth first.'},
+  {id:'terrain', name:'Terrain, slopes and craters', color:'#4ade80', soon:false,
+   why:'Craters and rough ground on Earth let astronauts and rovers practise before going to the Moon.'},
+  {id:'temp', name:'Temperature and sunlight', color:'#f2c14e', soon:false,
+   why:'Extreme cold tests batteries, suits and machines. Earth is not as cold as the Moon\'s shadowed craters (about -203°C), so results are only a starting point.'},
+  {id:'water', name:'Water, ice and permafrost', color:'#38bdf8', soon:false,
+   why:'Frozen ground on Earth helps us learn how to find and mine ice, the key resource at the lunar poles.'},
+  {id:'dust', name:'Dust, wind and erosion', color:'#fb923c', soon:true,
+   why:'Coming soon (Nabila is researching this). Note: the Moon has no wind, so Earth is least similar here.'},
+  {id:'caves', name:'Caves and lava tubes', color:'#f472b6', soon:false,
+   why:'Lava tubes could shelter people and equipment on the Moon. Earth lava tubes show how they form and how to explore them safely.'}
+];
+
+// lat/lon = real coordinates (approximate). img = path to a photo (leave '' for a placeholder).
+// moon = the lunar South Pole feature it is most like.
+const SITES = [
+ {name:'Devon Island', place:'Nunavut, Canada', lat:75.37, lon:-89.68, img:'',
+  moon:'Polar craters such as Shackleton',
+  about:'The Haughton-Mars Project has tested space technology here since 1997.',
+  info:{terrain:'Cold polar desert with an impact crater (Haughton).',
+        temp:'Cold all year. Summer highs are only around 4°C (40°F).',
+        water:'Has permafrost and glaciers.'}},
+ {name:'Concordia Station (Dome C)', place:'Antarctica', lat:-75.10, lon:123.33, img:'',
+  moon:'The cold floor of Shackleton crater',
+  about:'A research station used to study life in extreme, remote places.',
+  info:{temp:'Temperatures can drop to about -80°C. The Moon\'s shadowed craters are far colder, near -203°C.',
+        water:'Surrounded by a thick ice sheet.'}},
+ {name:'McMurdo Dry Valleys', place:'Antarctica', lat:-77.5, lon:162.5, img:'',
+  moon:'Cold, dry polar ground',
+  about:'An ESA scientist described it as about the closest you can get to another planet while staying on Earth.',
+  info:{temp:'Very cold and very dry.',
+        water:'Frozen ground in a cold desert.'}},
+ {name:'Svalbard', place:'Norway, Arctic', lat:78.22, lon:15.63, img:'',
+  moon:'Permanently frozen polar ground',
+  about:'The northernmost populated place on Earth.',
+  info:{temp:'Arctic cold with low Sun.',
+        water:'Permafrost, glaciers and frozen lakes (cryolakes) in one place.',
+        geology:'Rocks, ice and volcanoes together.'}},
+ {name:'Askja area', place:'Iceland', lat:65.03, lon:-16.75, img:'',
+  moon:'Lava plains such as the floor of Schrödinger basin',
+  about:'Apollo astronauts trained in Iceland and called it very lunar-like.',
+  info:{geology:'Basalt and breccia rocks, the same kinds found on the Moon.',
+        terrain:'Barren volcanic landscape.'}},
+ {name:'Timanfaya and Cueva de los Verdes', place:'Lanzarote, Canary Islands', lat:29.0, lon:-13.7, img:'',
+  moon:'Possible lava tubes; lava channels in Schrödinger',
+  about:'NASA and ESA astronauts learn geology fieldwork and practise driving rovers here.',
+  info:{geology:'Fresh volcanic rock and lava fields.',
+        terrain:'Volcanic landscape used for rover driving practice.',
+        caves:'Home to the Cueva de los Verdes lava tube. Scientists hope Moon lava tubes could one day hold habitats and equipment.'}},
+ {name:'Mauna Kea and Mauna Loa', place:'Hawaii, USA', lat:19.7, lon:-155.5, img:'',
+  moon:'Volcanic ground and rock on the Moon',
+  about:'NASA and the Canadian Space Agency test technology here. The HI-SEAS habitat sits on Mauna Loa.',
+  info:{geology:'Volcanic rock and soil are a good match for lunar geology.',
+        terrain:'Volcano slopes used to test rovers and equipment.'}},
+ {name:'San Francisco Volcanic Field', place:'Arizona, USA', lat:35.35, lon:-111.5, img:'',
+  moon:'Artemis missions near the South Pole',
+  about:'Artemis astronauts practised simulated moonwalks here for future South Pole missions.',
+  info:{terrain:'Volcanic field used to rehearse walking and working on the Moon.'}},
+ {name:'Meteor Crater', place:'Arizona, USA', lat:35.03, lon:-111.02, img:'',
+  moon:'Small bowl-shaped craters',
+  about:'Apollo astronauts used it for training.',
+  info:{terrain:'A bowl-shaped impact crater about 1.2 km wide.',
+        geology:'Broken rock thrown out by the impact.'}},
+ {name:'Craters of the Moon', place:'Idaho, USA', lat:43.42, lon:-113.52, img:'',
+  moon:'Lava fields and possible lava tubes',
+  about:'Apollo astronauts trained here before flying to the Moon.',
+  info:{geology:'Fields of black lava rock (basalt).',
+        terrain:'Lava flows and cinder cones.',
+        caves:'Has lava tubes (caves) inside old lava flows.'}}
+];
+
+/* ============ 2. MAP SETUP ============ */
+const map = L.map('map', {minZoom:2, worldCopyJump:true}).setView([25,-20], 2);
+const layers = {
+  sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+         {maxZoom:17, attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'}),
+  street: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+         {maxZoom:18, attribution:'&copy; OpenStreetMap contributors'})
+};
+let base = layers.sat.addTo(map);
+document.querySelectorAll('#styleBtns button').forEach(b => b.onclick = () => {
+  map.removeLayer(base); base = layers[b.dataset.s].addTo(map);
+  document.querySelectorAll('#styleBtns button').forEach(x => x.classList.toggle('on', x === b));
+});
+
+/* ============ 3. MARKERS ============ */
+const group = L.layerGroup().addTo(map);
+const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
+const active = new Set();
+let mode = 'any', lastCat = null;
+
+SITES.forEach(s => {
+  s.cats = Object.keys(s.info);
+  s.marker = L.marker([s.lat, s.lon]).bindPopup(() => popup(s), {maxWidth:300});
+  s.marker.bindTooltip(s.name, {direction:'right', offset:[14,0]});
+});
+
+function popup(s){
+  const shown = s.cats.filter(c => !active.size || active.has(c));
+  const body = (shown.length ? shown : s.cats).map(c =>
+    `<p style="--c:${catById[c].color}"><span>${catById[c].name}:</span> ${s.info[c]}</p>`).join('');
+  const photo = s.img ? `style="background-image:url('${s.img}')"` : '';
+  return `<div class="pop"><h3>${s.name}</h3><div class="meta">${s.place}</div>
+    <div class="photo" ${photo}>${s.img ? '' : 'Photo coming soon'}</div>
+    <p>${s.about}</p>${body}
+    <p class="moon"><span style="color:var(--gold)">Like this on the Moon:</span> ${s.moon}</p></div>`;
+}
+
+function matches(s){
+  if (!active.size) return true;
+  const hits = s.cats.filter(c => active.has(c)).length;
+  return mode === 'all' ? hits === active.size : hits > 0;
+}
+
+function render(){
+  const hits = [];
+  SITES.forEach(s => {
+    group.removeLayer(s.marker);
+    if (!matches(s)) return;
+    hits.push(s);
+    const cs = s.cats.filter(c => !active.size || active.has(c));
+    const gold = active.size > 1 && mode === 'all';
+    s.marker.setIcon(L.divIcon({className:'', iconSize:[0,0],
+      html:`<div class="pinwrap ${gold ? 'gold' : ''}">${cs.map(c => `<i style="background:${catById[c].color}"></i>`).join('')}</div>`}));
+    group.addLayer(s.marker);
+  });
+
+  document.querySelectorAll('.cat').forEach(b => b.classList.toggle('on', active.has(b.dataset.id)));
+  document.getElementById('mAny').classList.toggle('on', mode === 'any');
+  document.getElementById('mAll').classList.toggle('on', mode === 'all');
+  document.getElementById('info').innerHTML = lastCat
+    ? `<b>${catById[lastCat].name}</b>${catById[lastCat].why}`
+    : 'Pick a topic to see what it is and why Earth sites help.';
+
+  const res = document.getElementById('result');
+  if (!active.size) res.textContent = `Showing all ${SITES.length} places.`;
+  else if (!hits.length) res.textContent = 'No places match yet. Try "Show any".';
+  else res.innerHTML = (mode === 'all' && active.size > 1 ? '<span class="gold">Match all selected topics:</span> ' : `${hits.length} place${hits.length > 1 ? 's' : ''}: `)
+                       + hits.map(h => h.name).join(', ') + '.';
+}
+
+/* ============ 4. SIDEBAR ============ */
+const catBox = document.getElementById('cats');
+CATS.forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'cat'; b.dataset.id = c.id; b.style.setProperty('--c', c.color);
+  b.innerHTML = `<span class="dot"></span>${c.name}${c.soon ? '<small>soon</small>' : ''}`;
+  b.onclick = () => {
+    active.has(c.id) ? active.delete(c.id) : active.add(c.id);
+    lastCat = c.id; map.closePopup(); render();
+  };
+  catBox.appendChild(b);
+});
+document.getElementById('mAny').onclick = () => { mode = 'any'; render(); };
+document.getElementById('mAll').onclick = () => { mode = 'all'; render(); };
+document.getElementById('vWorld').onclick = () => map.setView([25,-20], 2);
+document.getElementById('vClear').onclick = () => { active.clear(); lastCat = null; map.closePopup(); render(); };
+
+render();
+</script>
+</body>
+</html>
